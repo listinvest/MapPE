@@ -8,20 +8,38 @@ using namespace std;
 
 void PrintInfo(char *);
 void Dump(char *);
+void Banner();
 
 int main(int argc, char const *argv[])
 {
 
+	if(argc<2){
+		Banner();
+		cout << "Usage: \n\tMapPE.exe  test.exe\n";
+		exit(1);
+	}
+
+	Banner();
 
 	fstream File;
-	File.open (argv[0], std::fstream::in | std::fstream::out | std::fstream::binary);
+	File.open (argv[1], std::fstream::in | std::fstream::out | std::fstream::binary);
 	if(File.is_open()){
 
-		LPVOID PE = VirtualAlloc(NULL,sizeof(File),MEM_COMMIT,PAGE_READWRITE);
-		memcpy(PE,File,sizeof(File));
 
-		PrintInfo((char*)PE);
-		Dump((char*)PE);
+		File.seekg(0, File.end);
+		int FileSize = File.tellg();
+		File.seekg(0, File.beg);
+
+		//char * PE = (char*)VirtualAlloc(NULL,sizeof(FileSize),MEM_COMMIT,PAGE_READWRITE);
+
+		char * PE = new char[FileSize];
+		
+		for(int i = 0; i < FileSize; i++){
+			File.get(PE[i]);
+		}
+
+		PrintInfo(PE);
+		Dump(PE);
 	}
 	else{
 		cout << "[-] Unable to open file (" << argv[0] << ")\n";
@@ -50,7 +68,7 @@ void PrintInfo(char * PE){
 	OptHeader = &NtHeader->OptionalHeader;
 
 
-	if(PE[0] == 'M' && PE[0] == 'Z'){
+	if(PE[0] == 'M' && PE[1] == 'Z'){
 		cout << "[+] \"MZ\" magic number found !\n";
 		if(NtHeader->Signature == IMAGE_NT_SIGNATURE){
 			cout << "[+] Valid \"PE\" signature \n\n";
@@ -84,18 +102,27 @@ void PrintInfo(char * PE){
 
 			for (int i = 0; i < NtHeader->FileHeader.NumberOfSections; i++){
 				SectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248 + (i * 40));
-				cout << "	##########################################\n";
-				cout << "	#                                        #\n";
-				cout << "	#   ." << SectionHeader->Name << " -> ";
-				printf("0x%x\n", SectionHeader->VirtualAddress);
-				cout << "               #\n";
+				cout << "##########################################\n";
+				cout << "#                                        #\n";
+				cout << "#   ";
+				for(int c = 0; c < 8; c++){
+					if(SectionHeader->Name[c] == NULL){
+						cout << " ";
+					}
+					else{
+						cout << SectionHeader->Name[c];
+					}
+				}
+				cout << " -> ";
+				printf("0x%x", (SectionHeader->VirtualAddress+OptHeader->ImageBase)); 
+				cout << "                 #\n";
 				
 				for(int j = 0; j < (SectionHeader->SizeOfRawData/(OptHeader->SizeOfImage/20)); j++){
-					cout << "	# 										 #\n";
+					cout << "#                                        #\n";
 				}
 			}
 
-			cout << "	##########################################\n";
+			cout << "##########################################\n\n";
 		}
 		else{
 			cout << "[-] PE signature missing ! \n";
@@ -104,7 +131,7 @@ void PrintInfo(char * PE){
 		}	
 	}
 	else{
-		cout << "[-] Magic number not valid !";
+		cout << "[-] Magic number not valid !\n";
 		cout << "[-] File is not a valid PE :(\n";
 		exit(1);
 	}
@@ -141,7 +168,7 @@ void Dump(char * PE){
 	DWORD ImageBase = OptHeader->ImageBase;
 	
 	fstream File;
-	File.open ("MappedImage", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
+	File.open ("Image.dmp", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
 	if(File.is_open()){
 
 		cout << "[>] Maping PE headers...\n";
@@ -172,11 +199,30 @@ void Dump(char * PE){
 			File.write((char*)(DWORD(PE) + SectionHeader->PointerToRawData), SectionHeader->SizeOfRawData);
 			ImageBase += SectionHeader->SizeOfRawData;
 		}
+
+		cout << "\n[+] File mapping completed !\n";
 		File.close();
+
+		cout << "[+] Mapped image dumped into Image.dmp\n";
 
 	}
 	else{
 		cout << "[-] Can't create dump file !";
 		exit(1);
 	}
+}
+
+
+void Banner(){
+
+cout << "                     _____________________\n";
+cout << "  _____ _____  ______\\______   \\_   _____/\n";
+cout << " /     \\__  \\ \\____ \\|     ___/|    __)_ \n";
+cout << "|  Y Y  \\/ __ \\|  |_> >    |    |        \\\n";
+cout << "|__|_|  (____  /   __/|____|   /_______  /\n";
+cout << "      \\/     \\/|__|                    \\/ \n";
+
+cout << "\nAuthor: Ege Balci\n";
+cout << "Github: github.com/egebalci/mappe\n\n";
+
 }
