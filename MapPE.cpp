@@ -7,20 +7,22 @@ using namespace std;
 
 
 void PrintInfo(char *);
-void Dump(char *);
+void Dump(char*);
 void CheckIntegrity(char*,char*);
 void Banner();
+
 
 int main(int argc, char const *argv[])
 {
 
 	if(argc<2){
 		Banner();
-		cout << "Usage: \n\tMapPE.exe  test.exe\n";
+		cout << "Usage: \n\tMapPE.exe  input.exe output.dmp\n";
 		exit(1);
 	}
 
 	Banner();
+
 
 	fstream File;
 	File.open (argv[1], std::fstream::in | std::fstream::out | std::fstream::binary);
@@ -40,7 +42,9 @@ int main(int argc, char const *argv[])
 		}
 
 		PrintInfo(PE);
+		
 		Dump(PE);
+		
 	}
 	else{
 		cout << "[!] Unable to open file (" << argv[0] << ")\n";
@@ -167,9 +171,11 @@ void Dump(char * PE){
 
 
 	DWORD ImageBase = OptHeader->ImageBase;
-	
+
+	system("del Mem.dmp");
+
 	fstream File;
-	File.open ("Image.dmp", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
+	File.open ("Mem.dmp", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
 	if(File.is_open()){
 
 		cout << "[>] Maping PE headers...\n";
@@ -188,16 +194,20 @@ void Dump(char * PE){
 			File.write((char*)(DWORD(PE) + SectionHeader->PointerToRawData), SectionHeader->SizeOfRawData);
 			ImageBase += SectionHeader->SizeOfRawData;
 
-			NextSectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248 + ((i+1) * 40));
-			
-			while(1){
-				if((OptHeader->ImageBase+NextSectionHeader->VirtualAddress) > ImageBase){
-					File << 0x00;
-					ImageBase++;
+
+			if (i <= (NtHeader->FileHeader.NumberOfSections-2));
+			{
+				NextSectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248 + ((i+1) * 40));
+							
+				while(1){
+					if((OptHeader->ImageBase+NextSectionHeader->VirtualAddress) > ImageBase){
+						File << 0x00;
+						ImageBase++;
+					}
+					else{
+						break;
+					}	
 				}
-				else{
-					break;
-				}	
 			}
 
 			printf("[>] 0x%x\n", ImageBase);
@@ -226,7 +236,7 @@ void Dump(char * PE){
 
 		File.close();
 
-		cout << "[+] Mapped image dumped into Image.dmp\n";
+		cout << "\n[+] Mapped image dumped into Mem.dmp\n";
 
 	}
 	else{
