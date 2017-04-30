@@ -8,6 +8,7 @@ using namespace std;
 
 void PrintInfo(char *);
 void Dump(char *);
+void CheckIntegrity(char*,char*);
 void Banner();
 
 int main(int argc, char const *argv[])
@@ -30,9 +31,9 @@ int main(int argc, char const *argv[])
 		int FileSize = File.tellg();
 		File.seekg(0, File.beg);
 
-		//char * PE = (char*)VirtualAlloc(NULL,sizeof(FileSize),MEM_COMMIT,PAGE_READWRITE);
+		char * PE = (char*)VirtualAlloc(NULL,FileSize,MEM_COMMIT,PAGE_READWRITE);
 
-		char * PE = new char[FileSize];
+		//char * PE = new char[FileSize];
 		
 		for(int i = 0; i < FileSize; i++){
 			File.get(PE[i]);
@@ -85,6 +86,7 @@ void PrintInfo(char * PE){
 			cout << "[*] Size Of Headers: " << OptHeader->SizeOfHeaders << " bytes\n";
 
 			printf("[*] Checksum: 0x%x\n", OptHeader->CheckSum);
+			printf("[*] Subsystem: 0x%x\n", OptHeader->Subsystem);
 
 
 			ExportTable = &OptHeader->DataDirectory[0];
@@ -122,7 +124,8 @@ void PrintInfo(char * PE){
 				}
 			}
 
-			cout << "##########################################\n\n";
+			cout << "########################################## -> ";
+			printf("0x%x\n\n", (OptHeader->SizeOfImage+OptHeader->ImageBase));
 		}
 		else{
 			cout << "[-] PE signature missing ! \n";
@@ -152,10 +155,7 @@ void Dump(char * PE){
 	IMAGE_NT_HEADERS * NtHeader; // For Nt PE Header objects & symbols
 	IMAGE_SECTION_HEADER * SectionHeader;
 	_IMAGE_FILE_HEADER * FileHeader;
-	IMAGE_OPTIONAL_HEADER * OptHeader;
-	_IMAGE_DATA_DIRECTORY * ImportTable;
-	_IMAGE_DATA_DIRECTORY * ImportAddressTable;
-	_IMAGE_DATA_DIRECTORY * ExportTable;	
+	IMAGE_OPTIONAL_HEADER * OptHeader;	
 
 
 	DOSHeader = PIMAGE_DOS_HEADER(PE); // Initialize Variable
@@ -182,9 +182,13 @@ void Dump(char * PE){
 			SectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248 + (i * 40));
 			cout << "[>]  " << SectionHeader->Name << endl;
 			printf("[>] 0x%x\n", ImageBase);
+
+
+			File.write((char*)(DWORD(PE) + SectionHeader->PointerToRawData), SectionHeader->SizeOfRawData);
+			ImageBase += SectionHeader->SizeOfRawData;
 			
 			while(1){
-				if(SectionHeader->VirtualAddress > ImageBase){
+				if((OptHeader->ImageBase+SectionHeader->VirtualAddress) > ImageBase){
 					File << 0x00;
 					ImageBase++;
 				}
@@ -193,14 +197,30 @@ void Dump(char * PE){
 				}	
 			}
 
-			cout << "[>] Maping section headers..." << endl;
 			printf("[>] 0x%x\n", ImageBase);
-
-			File.write((char*)(DWORD(PE) + SectionHeader->PointerToRawData), SectionHeader->SizeOfRawData);
-			ImageBase += SectionHeader->SizeOfRawData;
 		}
 
 		cout << "\n[+] File mapping completed !\n";
+
+		cout << "\n[*] Starting integrity checks...\n";
+		
+
+		File.seekg(0, File.end);
+		int MapSize = File.tellg();
+		File.seekg(0, File.beg);
+
+		cout << "\n[*] Mapped size: " << MapSize << endl;
+
+
+
+		char * Map = (char*)VirtualAlloc(NULL,MapSize,MEM_COMMIT,PAGE_READWRITE);
+
+		for(int i = 0; i < MapSize; i++){
+			File.get(Map[i]);
+		}
+
+		CheckIntegrity(PE,Map);
+
 		File.close();
 
 		cout << "[+] Mapped image dumped into Image.dmp\n";
@@ -211,6 +231,60 @@ void Dump(char * PE){
 		exit(1);
 	}
 }
+
+
+void CheckIntegrity(char * PE, char * Map){
+
+	IMAGE_DOS_HEADER * DOSHeader; // Dos header pointer 
+	IMAGE_NT_HEADERS * NtHeader; // NTHeader pointer
+	IMAGE_SECTION_HEADER * SectionHeader; // Section header pointer
+	_IMAGE_FILE_HEADER * FileHeader; // File pointer
+	IMAGE_OPTIONAL_HEADER * OptHeader; // Optional hader pointer
+	_IMAGE_DATA_DIRECTORY * ImportTable; // Data directory pointer
+	_IMAGE_DATA_DIRECTORY * ImportAddressTable;	// Address of IAT
+	IMAGE_IMPORT_DESCRIPTOR * ImportDescriptor; // Image import descriptor pointer
+
+
+	DOSHeader = PIMAGE_DOS_HEADER(PE); // Initialize Variable
+	NtHeader = PIMAGE_NT_HEADERS(DWORD(PE) + DOSHeader->e_lfanew); // Initialize Ntheader	
+	FileHeader = &NtHeader->FileHeader; 
+	OptHeader = &NtHeader->OptionalHeader;
+	ImportTable = &OptHeader->DataDirectory[2];
+	ImportAddressTable = &OptHeader->DataDirectory[13];
+
+/*
+	cout << "\n[*] Checking section alignment..................... ";
+
+	for (int i = 0; i < NtHeader->FileHeader.NumberOfSections; i++){
+		SectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248 + (i * 40));
+		//cout << "[^] i = " << i << endl;
+		for(int j = 0; j < (SectionHeader->SizeOfRawData/10); j++){
+			//cout << "[^] j = " << j << endl;
+			if(PE[SectionHeader->PointerToRawData+j] != Map[SectionHeader->VirtualAddress+j]) {
+				cout << "[FAILED] \n\n" << "Broken section alignment :(\n";
+				exit(1);
+			}
+		}
+	}
+	cout << "[OK]\n";
+*/
+	cout << "[*] Checking data directory intervals.............. ";
+
+	ImportDescriptor = (IMAGE_IMPORT_DESCRIPTOR*)(ImportTable->VirtualAddress+OptHeader->ImageBase);
+
+	for(int i = 0; i < (ImportAddressTable->Size/10); i++){
+		if(Map[ImportDescriptor->FirstThunk+i] != Map[ImportAddressTable->VirtualAddress+i]){
+			cout << "[FAILED] \n\n" << "Incorrect data directory intervals :(\n";
+			exit(1);			
+		}
+	}
+	cout << "[OK]\n";
+
+
+
+}
+
+
 
 
 void Banner(){
