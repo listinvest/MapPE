@@ -179,9 +179,9 @@ void Dump(char * PE){
 	if(File.is_open()){
 
 		cout << "[>] Maping PE headers...\n";
+		printf("[>] 0x%x\n", ImageBase);
 		File.write((char*)PE, NtHeader->OptionalHeader.SizeOfHeaders);
 		ImageBase += NtHeader->OptionalHeader.SizeOfHeaders;
-		printf("[>] 0x%x\n", ImageBase);
 
 		SectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248);
 							
@@ -194,6 +194,8 @@ void Dump(char * PE){
 				break;
 			}	
 		}
+
+		printf("[>] 0x%x\n", ImageBase);
 
 
 		cout << "[>] Maping sections... " << endl;
@@ -224,6 +226,16 @@ void Dump(char * PE){
 			}
 
 			printf("[>] 0x%x\n", ImageBase);
+		}
+
+		while(1){
+			if((OptHeader->SizeOfImage+OptHeader->ImageBase) > ImageBase){
+				File << 0x00;
+				ImageBase++;
+			}
+			else{
+				break;
+			}	
 		}
 
 		cout << "\n[+] File mapping completed !\n";
