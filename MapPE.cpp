@@ -183,6 +183,19 @@ void Dump(char * PE){
 		ImageBase += NtHeader->OptionalHeader.SizeOfHeaders;
 		printf("[>] 0x%x\n", ImageBase);
 
+		SectionHeader = PIMAGE_SECTION_HEADER(DWORD(PE) + DOSHeader->e_lfanew + 248);
+							
+		while(1){
+			if((OptHeader->ImageBase+SectionHeader->VirtualAddress) > ImageBase){
+				File << 0x00;
+				ImageBase++;
+			}
+			else{
+				break;
+			}	
+		}
+
+
 		cout << "[>] Maping sections... " << endl;
 		for (int i = 0; i < NtHeader->FileHeader.NumberOfSections; i++)
 		{
