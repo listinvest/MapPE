@@ -8,7 +8,7 @@ using namespace std;
 
 void PrintInfo(char *);
 void Dump(char*);
-void CheckIntegrity(char*,char*);
+void CheckIntegrity(char*,char*,int);
 void Banner();
 
 
@@ -17,7 +17,7 @@ int main(int argc, char const *argv[])
 
 	if(argc<2){
 		Banner();
-		cout << "Usage: \n\tMapPE.exe  input.exe output.dmp\n";
+		cout << "Usage: \n\tMapPE.exe  input.exe\n";
 		exit(1);
 	}
 
@@ -245,7 +245,7 @@ void Dump(char * PE){
 			File.get(Map[i]);
 		}
 
-		CheckIntegrity(PE,Map);
+		CheckIntegrity(PE,Map,MapSize);
 
 		File.close();
 
@@ -259,7 +259,7 @@ void Dump(char * PE){
 }
 
 
-void CheckIntegrity(char * PE, char * Map){
+void CheckIntegrity(char * PE, char * Map, int MapSize){
 
 	IMAGE_DOS_HEADER * DOSHeader; // Dos header pointer 
 	IMAGE_NT_HEADERS * NtHeader; // NTHeader pointer
@@ -277,6 +277,16 @@ void CheckIntegrity(char * PE, char * Map){
 	OptHeader = &NtHeader->OptionalHeader;
 	ImportTable = &OptHeader->DataDirectory[2];
 	ImportAddressTable = &OptHeader->DataDirectory[13];
+
+
+	cout << "\n[*] Checking image size............................ ";
+
+	if(OptHeader->SizeOfImage != MapSize){
+		cout << "[FAILED] \n\n" << "[!] Image size does not match :(\n";
+		exit(1);
+	}
+	cout << "[OK]";
+
 
 
 	cout << "\n[*] Checking section alignment..................... ";
