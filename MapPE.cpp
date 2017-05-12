@@ -291,6 +291,12 @@ void CheckIntegrity(char * PE, char * Map, int MapSize){
 	ImportAddressTable = &OptHeader->DataDirectory[13];
 
 
+/*
+	cout << "\n[*] Checking for bounded imports................... ";
+
+	if()
+*/
+
 	cout << "\n[*] Checking image size............................ ";
 
 	if(OptHeader->SizeOfImage != MapSize){
