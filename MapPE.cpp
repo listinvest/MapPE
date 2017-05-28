@@ -187,7 +187,7 @@ void Dump(char * PE){
 							
 		while(1){
 			if((OptHeader->ImageBase+SectionHeader->VirtualAddress) > ImageBase){
-				File << 0x00;
+				File << (char)NULL;
 				ImageBase++;
 			}
 			else{
@@ -216,7 +216,7 @@ void Dump(char * PE){
 							
 				while(1){
 					if((OptHeader->ImageBase+NextSectionHeader->VirtualAddress) > ImageBase){
-						File << 0x00;
+						File << (char)NULL;
 						ImageBase++;
 					}
 					else{
@@ -230,7 +230,7 @@ void Dump(char * PE){
 
 		while(1){
 			if((OptHeader->SizeOfImage+OptHeader->ImageBase) > ImageBase){
-				File << 0x00;
+				File << (char)NULL;
 				ImageBase++;
 			}
 			else{
