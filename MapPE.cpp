@@ -48,7 +48,7 @@ int main(int argc, char const *argv[])
 	}
 	else{
 		cout << "[!] Unable to open file (" << argv[1] << ")\n";
-		return 0;	
+		exit(1);	
 	}
 
 
