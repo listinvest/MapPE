@@ -172,10 +172,10 @@ void Dump(char * PE){
 
 	DWORD ImageBase = OptHeader->ImageBase;
 
-	system("del Mem.dmp");
+	system("del Mem.map");
 
 	fstream File;
-	File.open ("Mem.dmp", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
+	File.open ("Mem.map", std::fstream::in | std::fstream::out | std::fstream::app | std::fstream::binary);
 	if(File.is_open()){
 
 		cout << "[>] Maping PE headers...\n";
@@ -261,7 +261,7 @@ void Dump(char * PE){
 
 		File.close();
 
-		cout << "\n[+] Mapped image dumped into Mem.dmp\n";
+		cout << "\n[+] Mapped image dumped into Mem.map\n";
 
 	}
 	else{
