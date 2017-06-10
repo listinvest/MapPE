@@ -321,6 +321,11 @@ void CheckIntegrity(char * PE, char * Map, int MapSize){
 	}
 	cout << "[OK]\n";
 
+
+	if(ImportAddressTable->Size == 0){
+		cout << "[!] Enpty Import Table........................... [NULL]";		
+	}
+
 	cout << "[*] Checking data directory intervals.............. ";
 
 	ImportDescriptor = (IMAGE_IMPORT_DESCRIPTOR*)(ImportTable->VirtualAddress+OptHeader->ImageBase);
