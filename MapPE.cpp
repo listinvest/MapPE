@@ -1,4 +1,4 @@
-#include <windows.h>
+#include <windows.h> // Compiled with: i686-w64-mingw32-g++-win32 -static-libgcc -static-libstdc++ MapPE.cpp -o MapPE.exe
 #include <fstream>
 #include <stdio.h>
 #include <iostream>
@@ -322,8 +322,8 @@ void CheckIntegrity(char * PE, char * Map, int MapSize){
 	cout << "[OK]\n";
 
 
-	if(ImportAddressTable->Size == 0){
-		cout << "[!] Enpty Import Table........................... [NULL]";		
+	if(ImportTable->Size == 0){
+		cout << "[!] Enpty Import Table........................... [NULL]\n";		
 	}
 
 	cout << "[*] Checking data directory intervals.............. ";
