@@ -65,7 +65,7 @@ void PrintInfo(char * PE){
 	_IMAGE_DATA_DIRECTORY * ImportTable;
 	_IMAGE_DATA_DIRECTORY * ImportAddressTable;
 	_IMAGE_DATA_DIRECTORY * ExportTable;
-
+	_IMAGE_DATA_DIRECTORY * RelocationTable;
 
 	DOSHeader = PIMAGE_DOS_HEADER(PE); // Initialize Variable
 	NtHeader = PIMAGE_NT_HEADERS(DWORD(PE) + DOSHeader->e_lfanew); // Initialize	
@@ -95,13 +95,14 @@ void PrintInfo(char * PE){
 
 			ExportTable = &OptHeader->DataDirectory[0];
 			ImportTable = &OptHeader->DataDirectory[1];
+			RelocationTable = &OptHeader->DataDirectory[5];
 			ImportAddressTable = &OptHeader->DataDirectory[12];
 
 
 			printf("[*] Export Table: 0x%x\n", (ExportTable->VirtualAddress+OptHeader->ImageBase));
 			printf("[*] Import Table: 0x%x\n", (ImportTable->VirtualAddress+OptHeader->ImageBase));
 			printf("[*] Import Address Table: 0x%x\n", (ImportAddressTable->VirtualAddress+OptHeader->ImageBase));
-
+			printf("[*] Relocation Table: 0x%x\n", (RelocationTable->VirtualAddress+OptHeader->ImageBase));
 
 			cout << "[-------------------------------------]\n\n\n";
 
