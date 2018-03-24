@@ -1,6 +1,7 @@
 package main
 
 import "path/filepath"
+import "encoding/hex"
 import "io/ioutil"
 import "debug/pe"
 import "strconv"
@@ -16,34 +17,61 @@ type ARGS struct {
 	verbose bool
 	help 	bool
 	ignore 	bool
-
-	integrity bool
 }
 
-type ImportDirectory struct {
-	OriginalFirstThunk uint32
-	TimeDateStamp      uint32
-	ForwarderChain     uint32
-	Name               uint32
-	FirstThunk         uint32
-	// contains filtered or unexported fields
+type OptionalHeader struct {
+	Magic                       uint16
+	MajorLinkerVersion          uint8
+	MinorLinkerVersion          uint8
+	SizeOfCode                  uint32
+	SizeOfInitializedData       uint32
+	SizeOfUninitializedData     uint32
+	AddressOfEntryPoint         uint32
+	BaseOfCode                  uint32
+	ImageBase                   uint64
+	SectionAlignment            uint32
+	FileAlignment               uint32
+	MajorOperatingSystemVersion uint16
+	MinorOperatingSystemVersion uint16
+	MajorImageVersion           uint16
+	MinorImageVersion           uint16
+	MajorSubsystemVersion       uint16
+	MinorSubsystemVersion       uint16
+	Win32VersionValue           uint32
+	SizeOfImage                 uint32
+	SizeOfHeaders               uint32
+	CheckSum                    uint32
+	Subsystem                   uint16
+	DllCharacteristics          uint16
+	SizeOfStackReserve          uint64
+	SizeOfStackCommit           uint64
+	SizeOfHeapReserve           uint64
+	SizeOfHeapCommit            uint64
+	LoaderFlags                 uint32
+	NumberOfRvaAndSizes         uint32
+	DataDirectory               [16]DataDirectory
+}
+
+type DataDirectory struct {
+	VirtualAddress uint32
+	Size           uint32
 }
 
 var args ARGS
 
 func main() {
 
-
 	runtime.GOMAXPROCS(runtime.NumCPU()) // Run faster !
+	BANNER()
+
 	flag.BoolVar(&args.scrape, "s", false, "Scrape PE headers.")
 	flag.BoolVar(&args.verbose, "v", false, "Verbose output mode.")
-	flag.BoolVar(&args.verbose,"verbose", false, "Verbose output mode.")
 	flag.BoolVar(&args.ignore, "ignore", false, "Ignore integrity check errors.")
 	flag.BoolVar(&args.help, "h", false, "Display this message")
 	flag.Parse()
 
 	if len(os.Args) == 1 || args.help {
-		HELP()
+		flag.PrintDefaults()
 		os.Exit(1)
 	} 
 
@@ -58,34 +86,54 @@ func main() {
 	RawFile, err2 := ioutil.ReadFile(abs)
 	ParseError(err2)
 
-	opt := file.OptionalHeader.(*pe.OptionalHeader32)
-	
-	// if file.Machine == 0x8664 {
-	// 	opt = file.OptionalHeader.(*pe.OptionalHeader64)
-	// }
+	var opt OptionalHeader
+
+	if file.Machine == 0x8664 {
+		_opt := (file.OptionalHeader.(*pe.OptionalHeader64))
+		opt.Magic = _opt.Magic
+		opt.Subsystem = _opt.Subsystem
+		opt.ImageBase = _opt.ImageBase
+		opt.SizeOfImage =  _opt.SizeOfImage
+		opt.SizeOfHeaders = _opt.SizeOfHeaders
+		for i:=0; i<16; i++ {
+			opt.DataDirectory[i].VirtualAddress = _opt.DataDirectory[i].VirtualAddress
+			opt.DataDirectory[i].Size = _opt.DataDirectory[i].Size
+		}
+	}else{
+		_opt := file.OptionalHeader.((*pe.OptionalHeader32))
+		opt.Magic = _opt.Magic
+		opt.Subsystem = _opt.Subsystem
+		opt.ImageBase = uint64(_opt.ImageBase)
+		opt.SizeOfImage =  _opt.SizeOfImage
+		opt.SizeOfHeaders = _opt.SizeOfHeaders
+		for i:=0; i<16; i++ {
+			opt.DataDirectory[i].VirtualAddress = _opt.DataDirectory[i].VirtualAddress
+			opt.DataDirectory[i].Size = _opt.DataDirectory[i].Size
+		}
+	}
 
 	verbose("[-------------------------------------]\n",0)	
 	verbose("[*] File Size: "+strconv.Itoa(len(RawFile))+" byte\n", 0)
-	verbose("Machine:", uint32(file.FileHeader.Machine))
-	verbose("Magic:", uint32(opt.Magic))
-	verbose("Subsystem:", uint32(opt.Subsystem))
-	verbose("Image Base:", uint32(opt.ImageBase))
-	verbose("Size Of Image:", uint32(opt.SizeOfImage))
-	verbose("Export Table:", uint32(opt.DataDirectory[0].VirtualAddress+opt.ImageBase))
-	verbose("Import Table:", uint32(opt.DataDirectory[1].VirtualAddress+opt.ImageBase))
-	verbose("Base Relocation Table:", uint32(opt.DataDirectory[5].VirtualAddress+opt.ImageBase))
-	verbose("Import Address Table:", uint32(opt.DataDirectory[12].VirtualAddress+opt.ImageBase))
+	verbose("Machine:", uint64(file.FileHeader.Machine))
+	verbose("Magic:", uint64(opt.Magic))
+	verbose("Subsystem:", uint64(opt.Subsystem))
+	verbose("Image Base:", uint64(opt.ImageBase))
+	verbose("Size Of Image:", uint64(opt.SizeOfImage))
+	verbose("Export Table:", uint64(opt.DataDirectory[0].VirtualAddress)+opt.ImageBase)
+	verbose("Import Table:", uint64(opt.DataDirectory[1].VirtualAddress)+opt.ImageBase)
+	verbose("Base Relocation Table:", uint64(opt.DataDirectory[5].VirtualAddress)+opt.ImageBase)
+	verbose("Import Address Table:", uint64(opt.DataDirectory[12].VirtualAddress)+opt.ImageBase)
 	verbose("[-------------------------------------]\n\n\n",0)
 
-	var offset uint32 = opt.ImageBase
+	var offset uint64 = opt.ImageBase
 	Map := bytes.Buffer{}
 	// Map the PE headers
 	Map.Write(RawFile[0:int(opt.SizeOfHeaders)])
-	offset += opt.SizeOfHeaders
+	offset += uint64(opt.SizeOfHeaders)
 
 	for i := 0; i < len(file.Sections); i++ {
 		// Append null bytes if there is a gap between sections or PE header
-		for offset < (file.Sections[i].VirtualAddress + opt.ImageBase) {
+		for offset < (uint64(file.Sections[i].VirtualAddress)+opt.ImageBase) {
 			Map.WriteString(string(0x00))
 			offset += 1
 		}
@@ -93,16 +141,16 @@ func main() {
 		SectionData, err := file.Sections[i].Data()
 		ParseError(err)
 		Map.Write(SectionData)
-		offset += file.Sections[i].Size
+		offset += uint64(file.Sections[i].Size)
 		// Append null bytes until reaching the end of the virtual address of the section
-		for offset < (file.Sections[i].VirtualAddress + file.Sections[i].VirtualSize + opt.ImageBase) {
+		for offset < (uint64(file.Sections[i].VirtualAddress)+uint64(file.Sections[i].VirtualSize)+opt.ImageBase) {
 			Map.WriteString(string(0x00))
 			offset += 1
 		}
 
 	}
 
-	for (offset - opt.ImageBase) < opt.SizeOfImage {
+	for (offset-uint64(opt.ImageBase)) < uint64(opt.SizeOfImage) {
 		Map.WriteString(string(0x00))
 		offset += 1
 	}
@@ -110,8 +158,6 @@ func main() {
 	verbose("[*] Starting integrity checks...\n",0)
 
 	// Perform integrity checks...
-	args.integrity = true 
-
 	verbose("[*] Checking image size ------------------------------>",0)
 	if int(opt.SizeOfImage) != Map.Len() {
 		if !args.ignore {
@@ -140,7 +186,7 @@ func main() {
 		} 
 	}
 
-	verbose("[*] Writing map file "+abs+".map",0)
+	verbose("[*] Writing map file "+abs+".map\n",0)
 	MapFile, MapFileErr := os.Create(abs+".map")
 	ParseError(MapFileErr)
 	if args.scrape {
@@ -157,17 +203,35 @@ func main() {
 func scrape(Map []byte) ([]byte){
 
 	verbose("\n\n[*] Scraping PE headers...\n",0)
+
+	if string(Map[:2]) == "MZ" {
+		verbose(hex.Dump(Map[:2]),0)
+		Map[0] = byte(0x00)
+		Map[1] = byte(0x00)
+	}
+
+	if string(Map[64:66]) == "PE" {
+		verbose(hex.Dump(Map[64:66]),0)
+		Map[64] = byte(0x00)
+		Map[65] = byte(0x00)
+	}
 	
-	verbose("[>] "+string(Map[0])+string(Map[1])+"\n",0)
-	Map[0] = byte(0x00)
-	Map[1] = byte(0x00)
-	verbose("[>] "+string(Map[64])+string(Map[65])+"\n",0)
-	Map[64] = byte(0x00)
-	Map[65] = byte(0x00)
-	
+	if string(Map[78:117]) == "This program cannot be run in DOS mode." {
+		verbose(hex.Dump(Map[78:117]),0)
+		for i:=0; i<40; i++ {
+			Map[78+i] = byte(0x00)
+		}
+	}
+
+	if string(Map[128:130]) == "PE" {
+		verbose(hex.Dump(Map[128:130]),0)
+		Map[128] = byte(0x00)
+		Map[129] = byte(0x00)
+	}
+
 	for i:=66; i<0x1000; i++{
 		if Map[i] == 0x2e && Map[i+1] < 0x7e && Map[i+1] > 0x21 {
-			verbose("[>] "+string(Map[i:i+7])+"\n",0)
+			verbose(hex.Dump(Map[i:i+7]),0)
 			for j:=0; j<7; j++{
 				Map[i+j] = byte(0x00)
 			}
@@ -187,7 +251,7 @@ func ParseError(err error){
 	}
 }
 
-func verbose(str string, value uint32) {
+func verbose(str string, value uint64) {
 	if args.verbose {
 
 		if value == 0 {
@@ -199,10 +263,9 @@ func verbose(str string, value uint32) {
 }
 
 
-func HELP(){
+func BANNER(){
 
-	var banner = `
-                      _____________________
+	var banner = `                      _____________________
    _____ _____  ______\______   \_   _____/
   /     \\__  \ \____ \|     ___/|    __)_ 
  |  Y Y  \/ __ \|  |_> >    |    |        \
@@ -210,15 +273,6 @@ func HELP(){
        \/     \/|__|                    \/ 
 Author: Ege Balcı
 Github: github.com/egebalci/mappe
-
-Usage of `+os.Args[0]+`:
--ignore
-	Ignore integrity check errors.
--s	Scrape PE headers.
--v	Verbose output mode.
--verbose
-	Verbose output mode.
-
-	`
+`
 	fmt.Println(banner)
 }
