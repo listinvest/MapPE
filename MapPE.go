@@ -92,7 +92,9 @@ func main() {
 		_opt := (file.OptionalHeader.(*pe.OptionalHeader64))
 		opt.Magic = _opt.Magic
 		opt.Subsystem = _opt.Subsystem
+		opt.CheckSum = _opt.CheckSum
 		opt.ImageBase = _opt.ImageBase
+		opt.AddressOfEntryPoint = _opt.AddressOfEntryPoint
 		opt.SizeOfImage =  _opt.SizeOfImage
 		opt.SizeOfHeaders = _opt.SizeOfHeaders
 		for i:=0; i<16; i++ {
@@ -103,7 +105,9 @@ func main() {
 		_opt := file.OptionalHeader.((*pe.OptionalHeader32))
 		opt.Magic = _opt.Magic
 		opt.Subsystem = _opt.Subsystem
+		opt.CheckSum = _opt.CheckSum
 		opt.ImageBase = uint64(_opt.ImageBase)
+		opt.AddressOfEntryPoint = _opt.AddressOfEntryPoint
 		opt.SizeOfImage =  _opt.SizeOfImage
 		opt.SizeOfHeaders = _opt.SizeOfHeaders
 		for i:=0; i<16; i++ {
@@ -114,10 +118,16 @@ func main() {
 
 	verbose("[-------------------------------------]\n",0)	
 	verbose("[*] File Size: "+strconv.Itoa(len(RawFile))+" byte\n", 0)
+	verbose("Architecture:",uint64(file.Machine))
 	verbose("Machine:", uint64(file.FileHeader.Machine))
 	verbose("Magic:", uint64(opt.Magic))
 	verbose("Subsystem:", uint64(opt.Subsystem))
+	if opt.CheckSum != 0x00 {
+		verbose("Checksum:", uint64(opt.CheckSum))
+	}
 	verbose("Image Base:", uint64(opt.ImageBase))
+	verbose("Address Of Entry:", uint64(opt.AddressOfEntryPoint))
+	verbose("Size Of Headers:", uint64(opt.SizeOfHeaders))
 	verbose("Size Of Image:", uint64(opt.SizeOfImage))
 	verbose("Export Table:", uint64(opt.DataDirectory[0].VirtualAddress)+opt.ImageBase)
 	verbose("Import Table:", uint64(opt.DataDirectory[1].VirtualAddress)+opt.ImageBase)
