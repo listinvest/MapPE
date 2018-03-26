@@ -118,7 +118,6 @@ func main() {
 
 	verbose("[-------------------------------------]\n",0)	
 	verbose("[*] File Size: "+strconv.Itoa(len(RawFile))+" byte\n", 0)
-	verbose("Architecture:",uint64(file.Machine))
 	verbose("Machine:", uint64(file.FileHeader.Machine))
 	verbose("Magic:", uint64(opt.Magic))
 	verbose("Subsystem:", uint64(opt.Subsystem))
@@ -160,7 +159,7 @@ func main() {
 
 	}
 
-	for (offset-uint64(opt.ImageBase)) < uint64(opt.SizeOfImage) {
+	for (offset-opt.ImageBase) < uint64(opt.SizeOfImage) {
 		Map.WriteString(string(0x00))
 		offset += 1
 	}
@@ -214,36 +213,34 @@ func scrape(Map []byte) ([]byte){
 
 	verbose("\n\n[*] Scraping PE headers...\n",0)
 
-	if string(Map[:2]) == "MZ" {
-		verbose(hex.Dump(Map[:2]),0)
-		Map[0] = byte(0x00)
-		Map[1] = byte(0x00)
-	}
+	// if string(Map[:2]) == "MZ" {
+	// 	verbose(hex.Dump(Map[:2]),0)
+	// 	Map[0] = 0x00
+	// 	Map[1] = 0x00
+	// }
 
-	if string(Map[64:66]) == "PE" {
-		verbose(hex.Dump(Map[64:66]),0)
-		Map[64] = byte(0x00)
-		Map[65] = byte(0x00)
-	}
-	
-	if string(Map[78:117]) == "This program cannot be run in DOS mode." {
-		verbose(hex.Dump(Map[78:117]),0)
-		for i:=0; i<40; i++ {
-			Map[78+i] = byte(0x00)
+	// for i:=0; i<0x1000; i++ {
+	// 	if string(Map[i:i+2]) == "PE" {
+	// 		verbose(hex.Dump(Map[i:i+2]),0)
+	// 		Map[i] = 0x00
+	// 		Map[i+1] = 0x00
+	// 	}
+	// }
+
+	for i:=0; i<0x1000; i++ {
+		if string(Map[i:i+39]) == "This program cannot be run in DOS mode." {
+			verbose(hex.Dump(Map[i:i+39]),0)
+			for j:=0; j<39; j++ {
+				Map[i+j] = 0x00
+			}
 		}
 	}
 
-	if string(Map[128:130]) == "PE" {
-		verbose(hex.Dump(Map[128:130]),0)
-		Map[128] = byte(0x00)
-		Map[129] = byte(0x00)
-	}
-
-	for i:=66; i<0x1000; i++{
+	for i:=66; i<0x1000; i++ {
 		if Map[i] == 0x2e && Map[i+1] < 0x7e && Map[i+1] > 0x21 {
 			verbose(hex.Dump(Map[i:i+7]),0)
 			for j:=0; j<7; j++{
-				Map[i+j] = byte(0x00)
+				Map[i+j] = 0x00
 			}
 		}
 	}
